@@ -26,6 +26,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "dio_ros_driver/msg/dio_port.hpp"
+#include "dio_ros_driver/msg/dio_array.hpp"
+#include "dio_ros_driver/msg/dio_port_value.hpp"
 
 #include <string>
 #include <cstdint>
@@ -44,6 +46,12 @@ typedef struct dout_update {
   dout_update() : update_(false), value_() {}
   dout_update(const bool &update_, const bool &value_);
 } dout_update;  // !<@brief indicator of update and value for updating port
+typedef struct dout_array_update {
+  bool update_;
+  dio_ros_driver::msg::DIOArray::ConstSharedPtr value_;
+  dout_array_update() : update_(false), value_(nullptr) {}
+  dout_array_update(const bool &update_, const bool &value_);
+} dout_array_update;    // !<@brief indicator of update and value for updating dout array ports.
 
 class DIO_ROSDriver : public rclcpp::Node {
  public:
@@ -60,12 +68,16 @@ class DIO_ROSDriver : public rclcpp::Node {
       std::shared_ptr<DIO_AccessorBase> dio_accessor);           // !<@brief Add ports to given accessor.
   void receiveWriteRequest(const dio_ros_driver::msg::DIOPort::SharedPtr &dout_topic,
          const uint32_t &port_id);                               // !<@brief receive user write request.
+  void receiveArrayWriteReqests(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic, const uint32_t &array_id); // !<@brief receive user write array request.
   void readDINPorts(void);                                                         // !<@brief read all DI port and send them as topics
   void writeDOUTPorts(void);                                                       // !<@brief DO ports by value according to received request
+  void initPortsArray(void);                                                       // !<@brief DI, DO ports array initialization
 
   // Publisher and subscribers.
   std::array<rclcpp::Publisher<dio_ros_driver::msg::DIOPort>::SharedPtr, MAX_PORT_NUM> din_port_publisher_array_;     // !<@brief ros publishers array for DIN ports
   std::array<rclcpp::Subscription<dio_ros_driver::msg::DIOPort>::SharedPtr, MAX_PORT_NUM> dout_port_subscriber_array_;  // !<@brief ros subscribers array for DOUT ports
+  std::vector<rclcpp::Subscription<dio_ros_driver::msg::DIOArray>::SharedPtr> dio_dout_arrays_;                          // !<@brief ros subscriber for DOUT array ports
+  std::vector<rclcpp::Publisher<dio_ros_driver::msg::DIOArray>::SharedPtr> dio_din_arrays_;                              // !<@brief ros publisher for DIN array ports
 
   // Timer callback
   rclcpp::TimerBase::SharedPtr dio_update_timer_;  // !<@brief Timer for DIO update.
@@ -85,9 +97,18 @@ class DIO_ROSDriver : public rclcpp::Node {
   std::vector<uint32_t> dout_port_offset_;
   bool dout_value_inverse_;  // !<@brief DOUT value inverse enabler.
   bool dout_default_value_;  // !<@brief DOUT defaule value
+  std::array<bool, MAX_PORT_NUM> enable_dout_ports_array_{false};        // !<@brief enable Dout Ports Array.
+  std::array<bool, MAX_PORT_NUM> enable_din_ports_array_{false};        // !<@brief enable Din Ports Array.
+  std::array<bool, MAX_PORT_NUM> use_dout_port_{false};       // !<@brief use Dout Port Array access.
+  std::array<bool, MAX_PORT_NUM> use_din_port_{false};        // !<@brief use Din Port Array access.
+  std::array<bool, MAX_PORT_NUM> dout_array_list_{false};     //  !<@brief Dout Ports Arrays list.
+  std::array<bool, MAX_PORT_NUM> din_array_list_{false};     //  !<@brief Din Ports Arrays list.
+  std::array<std::vector<uint32_t>, MAX_PORT_NUM> dout_ports_arrays_;     // !<@brief Dout Ports Arrays array.
+  std::array<std::vector<uint32_t>, MAX_PORT_NUM> din_ports_arrays_;      // !<@brief Din Ports Arrays array.
 
   // variable for sharing between callbacks
   std::array<dout_update, MAX_PORT_NUM> dout_user_update_;  // !<@brief update list.
+  std::array<dout_array_update, MAX_PORT_NUM> dout_arrays_user_update_;   // !<@brief update dout arrays.
   gpiod_chip *dio_chip_;                                    // !<@brief chip descriptor
 };
 }  // namespace dio_ros_driver

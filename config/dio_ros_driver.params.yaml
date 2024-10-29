@@ -12,3 +12,7 @@
     dout_value_inverse: false
     dout_default_value: true
     dout_port_offset: [105, 106, 107, 108, 109, 110, 111, 112]
+
+/**:
+  ros__parameters:
+    dout_ports_array0: [5, 6, 7]

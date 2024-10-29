@@ -23,6 +23,8 @@ ament_auto_find_build_dependencies()
 # generate original message.
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DIOPort.msg"
+  "msg/DIOPortValue.msg"
+  "msg/DIOArray.msg"
   DEPENDENCIES builtin_interfaces
 )
 

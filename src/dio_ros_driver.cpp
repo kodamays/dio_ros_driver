@@ -67,12 +67,23 @@ DIO_ROSDriver::DIO_ROSDriver(const std::string &node_name, const rclcpp::NodeOpt
     dout_port_offset_.push_back(static_cast<uint32_t>(tmp_port_offset));
   }
 
+  initPortsArray();
 
   // prepare publishers
   for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
     std::string topic_name = "/dio/din" + std::to_string(i);
     din_port_publisher_array_.at(i) = this->create_publisher<dio_ros_driver::msg::DIOPort>(topic_name, rclcpp::QoS(1));
   }
+
+  for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
+    if(din_array_list_[i] == true) {
+      std::string topic_name = "/dio/din_array" + std::to_string(i);
+      rclcpp::Publisher<dio_ros_driver::msg::DIOArray>::SharedPtr din_array;
+      din_array = this->create_publisher<dio_ros_driver::msg::DIOArray>(topic_name, rclcpp::QoS(1));
+      dio_din_arrays_.push_back(din_array);
+    }
+  }
+
   // prepare subscribers
   for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
     std::string topic_name = "/dio/dout" + std::to_string(i);
@@ -81,6 +92,19 @@ DIO_ROSDriver::DIO_ROSDriver(const std::string &node_name, const rclcpp::NodeOpt
                                                                                                 rclcpp::QoS(1),
                                                                                                 callback);
   }
+
+  for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
+    if(dout_array_list_[i] == true) {
+      std::string topic_name = "/dio/dout_array" + std::to_string(i);
+      rclcpp::Subscription<dio_ros_driver::msg::DIOArray>::SharedPtr dout_array;
+      std::function<void(std::shared_ptr<dio_ros_driver::msg::DIOArray>)> callback = std::bind(&DIO_ROSDriver::receiveArrayWriteReqests, this, std::placeholders::_1, i);
+      dout_array = this->create_subscription<dio_ros_driver::msg::DIOArray>(topic_name,
+                                                                              rclcpp::QoS(1),
+                                                                              callback);
+      dio_dout_arrays_.push_back(dout_array);                                                                      
+    }
+  }
+
   // create walltimer callback
   std::chrono::milliseconds update_cycle = std::chrono::milliseconds(1000U/static_cast<uint32_t>(access_frequency_));
   dio_update_timer_ = this->create_wall_timer(update_cycle,
@@ -187,16 +211,49 @@ void DIO_ROSDriver::receiveWriteRequest(const dio_ros_driver::msg::DIOPort::Shar
 }
 
 /**
+ * @brief callback function to hold and notify write request
+ * @param[in] dout_array_topic topic to update ports from application
+ * @param[in] array_id  targeted array_id number.
+ */
+void DIO_ROSDriver::receiveArrayWriteReqests(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic, const uint32_t &array_id) {
+  dout_arrays_user_update_[array_id].update_ = true;
+  dout_arrays_user_update_[array_id].value_ = dout_array_topic;
+}
+
+/**
  * @brief convert read value to topic
  * read values from all DI ports and send them as respective topic to application node
  */
 void DIO_ROSDriver::readDINPorts(void) {
   dio_ros_driver::msg::DIOPort din_port;
   for (uint32_t i = 0; i < din_accessor_->getNumOfPorts(); i++) {
-    int32_t read_value = din_accessor_->readPort(i);
-    if (read_value >= 0) {
-      din_port.value = static_cast<bool>(read_value);
-      din_port_publisher_array_.at(i)->publish(din_port);
+    if (use_din_port_[i] == false) {
+      int32_t read_value = din_accessor_->readPort(i);
+      if (read_value >= 0) {
+        din_port.value = static_cast<bool>(read_value);
+        din_port_publisher_array_.at(i)->publish(din_port);
+      }
+    }
+  }
+  for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
+    if (din_ports_arrays_[i].size() > 0) {
+      dio_ros_driver::msg::DIOArray read_values;
+      dio_ros_driver::msg::DIOPortValue value;
+      bool end_din_ports_array = true;
+      for (auto din_port_value : din_ports_arrays_[i]) {
+        int32_t read_value = din_accessor_->readPort(din_port_value);
+        if (read_value >= 0) {
+          value.port = din_port_value;
+          value.value = static_cast<bool>(read_value);
+          read_values.values.push_back(value);
+        } else {
+          end_din_ports_array = false;
+          break;
+        }
+      }
+      if(end_din_ports_array == true && read_values.values.size() > 0) {
+        dio_din_arrays_[i]->publish(read_values);
+      }
     }
   }
 }
@@ -207,12 +264,79 @@ void DIO_ROSDriver::readDINPorts(void) {
  */
 void DIO_ROSDriver::writeDOUTPorts(void) {
   for (uint32_t i = 0; i < dout_accessor_->getNumOfPorts(); i++) {
-    if (dout_user_update_.at(i).update_ == true) {
-      dout_accessor_->writePort(i, dout_user_update_.at(i).value_);
-      dout_user_update_.at(i).update_ = false;
+    if (use_dout_port_[i] == false) {
+      if (dout_user_update_.at(i).update_ == true) {
+        dout_accessor_->writePort(i, dout_user_update_.at(i).value_);
+        dout_user_update_.at(i).update_ = false;
+      }
+    }
+  }
+
+
+  for (uint32_t i = 0; i < enable_dout_ports_array_.size(); i++) {
+    if (enable_dout_ports_array_[i] == true && dout_arrays_user_update_[i].update_ == true) {
+      for (auto dout_port_value : dout_arrays_user_update_[i].value_->values) {
+        dout_accessor_->writePort(dout_port_value.port, dout_port_value.value);
+      }
+      dout_arrays_user_update_[i].update_ = false;
     }
   }
 }
 
-
+/**
+ * @brief  DI, DO ports array initialization
+ * initialize DI,DO ports array with parameters.
+ */
+void DIO_ROSDriver::initPortsArray(void) {
+  for (uint32_t i = 0; i < MAX_PORT_NUM; i++) {
+    std::string dout_ports_array_name = "dout_ports_array" + std::to_string(i);
+    std::string din_ports_array_name  = "din_ports_array" + std::to_string(i);
+    this->declare_parameter(dout_ports_array_name, std::vector<int64_t>{});
+    this->declare_parameter(din_ports_array_name, std::vector<int64_t>{});
+    auto dout_ports_array_list = this->get_parameter(dout_ports_array_name).as_integer_array();
+    auto din_ports_array_list = this->get_parameter(din_ports_array_name).as_integer_array();
+    if (dout_ports_array_list.size() > 0) {
+      RCLCPP_INFO(this->get_logger(), "dout_ports_array%d: size:%d", i, static_cast<int>(dout_ports_array_list.size()));
+      bool dout_array_set = true;
+      std::vector<uint32_t> dout_ports;
+      for (auto port : dout_ports_array_list) {
+        uint32_t port_no = static_cast<uint32_t>(port);
+        if( (use_dout_port_[port_no] == false) && (port_no < MAX_PORT_NUM) ) {
+          dout_ports.push_back(port_no);
+          use_dout_port_[port_no] = true;
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "[dio_ros_driver] Failed to set dout_ports_array%d port %d.", i, static_cast<int>(port));
+          dout_array_set = false;
+          break;
+        }
+      }
+      if (dout_array_set == true) {
+        dout_ports_arrays_[i] = dout_ports;
+        enable_dout_ports_array_[i] = true;
+        dout_array_list_[i] = true;
+      }
+    }
+    if (din_ports_array_list.size() > 0) {
+      RCLCPP_INFO(this->get_logger(), "din_ports_array%d: size:%d", i, static_cast<int>(din_ports_array_list.size()));
+      bool din_array_set = true;
+      std::vector<uint32_t> din_ports;
+      for (auto port : din_ports_array_list) {
+        uint32_t port_no = static_cast<uint32_t>(port);
+        if ( (use_din_port_[port_no] == false) && (port_no < MAX_PORT_NUM) ) {
+          din_ports.push_back(port_no);
+          use_din_port_[port_no] = true;
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "[dio_ros_driver] Failed to set din_ports_array%d port %d.", i, static_cast<int>(port));
+          din_array_set = false;
+          break;
+        }
+      }
+      if (din_array_set == true) {
+        din_ports_arrays_[i] = din_ports;
+        enable_din_ports_array_[i] = true;
+        din_array_list_[i] = true;
+      }
+    }
+  }
+}
 }  // namespace dio_ros_driver
