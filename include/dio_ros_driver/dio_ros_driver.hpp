@@ -72,6 +72,7 @@ class DIO_ROSDriver : public rclcpp::Node {
   void readDINPorts(void);                                                         // !<@brief read all DI port and send them as topics
   void writeDOUTPorts(void);                                                       // !<@brief DO ports by value according to received request
   void initPortsArray(void);                                                       // !<@brief DI, DO ports array initialization
+  void publishDINPortValue(void);                                                  // !<@brief publish DI ports data
 
   // Publisher and subscribers.
   std::array<rclcpp::Publisher<dio_ros_driver::msg::DIOPort>::SharedPtr, MAX_PORT_NUM> din_port_publisher_array_;     // !<@brief ros publishers array for DIN ports
@@ -99,17 +100,17 @@ class DIO_ROSDriver : public rclcpp::Node {
   bool dout_default_value_;  // !<@brief DOUT defaule value
   std::array<bool, MAX_PORT_NUM> enable_dout_ports_array_{false};        // !<@brief enable Dout Ports Array.
   std::array<bool, MAX_PORT_NUM> enable_din_ports_array_{false};        // !<@brief enable Din Ports Array.
-  std::array<bool, MAX_PORT_NUM> use_dout_port_{false};       // !<@brief use Dout Port Array access.
-  std::array<bool, MAX_PORT_NUM> use_din_port_{false};        // !<@brief use Din Port Array access.
-  std::array<bool, MAX_PORT_NUM> dout_array_list_{false};     //  !<@brief Dout Ports Arrays list.
-  std::array<bool, MAX_PORT_NUM> din_array_list_{false};     //  !<@brief Din Ports Arrays list.
   std::array<std::vector<uint32_t>, MAX_PORT_NUM> dout_ports_arrays_;     // !<@brief Dout Ports Arrays array.
   std::array<std::vector<uint32_t>, MAX_PORT_NUM> din_ports_arrays_;      // !<@brief Din Ports Arrays array.
 
   // variable for sharing between callbacks
   std::array<dout_update, MAX_PORT_NUM> dout_user_update_;  // !<@brief update list.
-  std::array<dout_array_update, MAX_PORT_NUM> dout_arrays_user_update_;   // !<@brief update dout arrays.
   gpiod_chip *dio_chip_;                                    // !<@brief chip descriptor
+  std::array<bool, MAX_PORT_NUM> use_dout_ports_array_{false}; // !<@brief use Dout Port Array access.
+  std::array<bool, MAX_PORT_NUM> use_din_ports_array_{false};      // !<@brief use Din Port Array access.
+  std::array<bool, MAX_PORT_NUM> dout_array_list_{false};     //  !<@brief Dout Ports Arrays list.
+  std::array<bool, MAX_PORT_NUM> din_array_list_{false};     //  !<@brief Din Ports Arrays list.
+  std::array<int32_t, MAX_PORT_NUM> read_din_values_{0};          // !<@brief Din read values
 };
 }  // namespace dio_ros_driver
 
