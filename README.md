@@ -16,7 +16,7 @@ $ ros2 launch dio_ros_driver dio_ros_driver.launch.xml
 ```
 
 After executing this command, `dio_ros_driver_node` will run without any message.
-You can observe topics such as `/dio/din[0-7]`, and `/dio/dout[0-7]`. `/dio/din[0-7]` have a boolean value read from a corresponding port. On the other hand, `/dio/dout[0-7]` have a boolean value to be written to a corresponding port.
+You can observe topics such as `/dio/din[0-7]`, `/dio/din_array`, `/dio/dout[0-7]`, and `/dio/dout_array`. `/dio/din[0-7]`, `/dio/din_array` have a boolean value read from a corresponding port. On the other hand, `/dio/dout[0-7]`, `/dio/dout_array` have a boolean value to be written to a corresponding port. 
 `dio_ros_driver_node` borrows ROS `diagnostics` framework as diagnostic function, and publishes `/diagnostics` topic.
 
 
@@ -32,10 +32,10 @@ No arguments supported. All parameters will be written in the config file as exp
 * `/dio/dout[0-7]`
   * message type: `dio_ros_driver/DIOPort`
   * descritpion: Boolean value written into DO ports
-* `/dio/din_array[0-7]`
+* `/dio/din_array`
   * message type: `dio_ros_driver/msg/DIOArray`
   * description: Boolean values read from DI ports when using multi DI ports
-* `/dio/dout_array[0-7]`
+* `/dio/dout_array`
   * message type: `dio_ros_driver/msg/DIOArray`
   * description: Boolean values written into DO ports when using multi DO ports
 * `/diagnostics`
@@ -58,10 +58,6 @@ dio_ros_driver_node:
     dout_value_inverse: false
     dout_default_value: true
     dout_port_offset: [105, 106, 107, 108, 109, 110, 111, 112]
-
-/**:
-  ros__parameters:
-    dout_ports_array0: [5, 6, 7]
 ```
 
 * `chip_name`: to select `gpiodchip[0-9]` in `/dev` directory
@@ -72,8 +68,7 @@ dio_ros_driver_node:
 * `dout_default_value`: initial boolean value for DO ports (default: true)
   * default value is true because initial value from DO port of ADLINK's MVP-6100 and MXC-6600 is **1 (true)**
 * `din_port_offset`: to correspond DO's port id and port offset 
-* `din_ports_array[0-7]`: an array of port numbers used for multiple DIs when using multi DI ports.Specify only when using multi DI ports
-* `dout_ports_array[0-7]`: an array of port numbers used for multiple DOs when using multi DO ports.Specify only when using multi DO ports
+
 
 Port offset means the port address shown by `gpioinfo` command. The port offset is associated with the ordering number in an array. For example, this `din_port_offset` indicates that 0th DI port is corresponded to 72th offset of the DI module.  
 The list is defined based on DIO module coupled with ADLINK's MVP-6100 series as well as ADLINK's MXC-6600 series.
