@@ -62,7 +62,7 @@ class DIO_ROSDriver : public rclcpp::Node {
       std::shared_ptr<DIO_AccessorBase> dio_accessor);           // !<@brief Add ports to given accessor.
   void receiveWriteRequest(const dio_ros_driver::msg::DIOPort::SharedPtr &dout_topic,
          const uint32_t &port_id);                               // !<@brief receive user write request.
-  void receiveArrayWriteReqest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic); // !<@brief receive user write array request.
+  void receiveArrayWriteRequest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic); // !<@brief receive user write array request.
   void readDINPorts(void);                                                         // !<@brief read all DI port and send them as topics
   void writeDOUTPorts(void);                                                       // !<@brief DO ports by value according to received request
   void publishDINPortValue(void);                                                  // !<@brief publish DI ports data

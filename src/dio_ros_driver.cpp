@@ -87,7 +87,7 @@ DIO_ROSDriver::DIO_ROSDriver(const std::string &node_name, const rclcpp::NodeOpt
 
   dout_port_array_subscriber_ = this->create_subscription<dio_ros_driver::msg::DIOArray>("/dio/dout_array",
                                                                                         rclcpp::QoS(1),
-                                                                                        std::bind(&DIO_ROSDriver::receiveArrayWriteReqest, this, std::placeholders::_1));
+                                                                                        std::bind(&DIO_ROSDriver::receiveArrayWriteRequest, this, std::placeholders::_1));
   
 
   // create walltimer callback
@@ -202,7 +202,7 @@ void DIO_ROSDriver::receiveWriteRequest(const dio_ros_driver::msg::DIOPort::Shar
  * @param[in] dout_array_topic topic to update ports from application
  * @param[in] array_id  targeted array_id number.
  */
-void DIO_ROSDriver::receiveArrayWriteReqest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic) {
+void DIO_ROSDriver::receiveArrayWriteRequest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic) {
   for (auto dout_port_data : dout_array_topic->values) {
     if (dout_port_data.port < MAX_PORT_NUM) {
       dout_update &targeted_dout_update = dout_user_update_.at(dout_port_data.port);
