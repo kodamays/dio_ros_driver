@@ -204,9 +204,11 @@ void DIO_ROSDriver::receiveWriteRequest(const dio_ros_driver::msg::DIOPort::Shar
  */
 void DIO_ROSDriver::receiveArrayWriteReqest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic) {
   for (auto dout_port_data : dout_array_topic->values) {
-    dout_update &targeted_dout_update = dout_user_update_.at(dout_port_data.port);
-    targeted_dout_update.update_ = true;
-    targeted_dout_update.value_ = dout_port_data.value;
+    if (dout_port_data.port < MAX_PORT_NUM) {
+      dout_update &targeted_dout_update = dout_user_update_.at(dout_port_data.port);
+      targeted_dout_update.update_ = true;
+      targeted_dout_update.value_ = dout_port_data.value;
+    }
   }
 }
 
