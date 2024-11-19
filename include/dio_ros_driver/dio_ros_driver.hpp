@@ -65,7 +65,6 @@ class DIO_ROSDriver : public rclcpp::Node {
   void receiveArrayWriteRequest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic); // !<@brief receive user write array request.
   void readDINPorts(void);                                                         // !<@brief read all DI port and send them as topics
   void writeDOUTPorts(void);                                                       // !<@brief DO ports by value according to received request
-  void publishDINPortValue(void);                                                  // !<@brief publish DI ports data
 
   // Publisher and subscribers.
   std::array<rclcpp::Publisher<dio_ros_driver::msg::DIOPort>::SharedPtr, MAX_PORT_NUM> din_port_publisher_array_;     // !<@brief ros publishers array for DIN ports
@@ -95,7 +94,6 @@ class DIO_ROSDriver : public rclcpp::Node {
   // variable for sharing between callbacks
   std::array<dout_update, MAX_PORT_NUM> dout_user_update_;  // !<@brief update list.
   gpiod_chip *dio_chip_;                                    // !<@brief chip descriptor
-  std::array<int32_t, MAX_PORT_NUM> read_din_values_{0};          // !<@brief Din read values
 };
 }  // namespace dio_ros_driver
 

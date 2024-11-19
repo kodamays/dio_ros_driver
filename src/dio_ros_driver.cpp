@@ -127,8 +127,6 @@ void DIO_ROSDriver::update(void) {
   readDINPorts();
   // write data to DOUT ports.
   writeDOUTPorts();
-  // publish DIN ports value.
-  publishDINPortValue();
   // activate diag updater.
   dio_diag_updater_->force_update();
 }
@@ -205,21 +203,33 @@ void DIO_ROSDriver::receiveWriteRequest(const dio_ros_driver::msg::DIOPort::Shar
 void DIO_ROSDriver::receiveArrayWriteRequest(const dio_ros_driver::msg::DIOArray::ConstSharedPtr &dout_array_topic) {
   for (auto dout_port_data : dout_array_topic->values) {
     if (dout_port_data.port < MAX_PORT_NUM) {
-      dout_update &targeted_dout_update = dout_user_update_.at(dout_port_data.port);
-      targeted_dout_update.update_ = true;
-      targeted_dout_update.value_ = dout_port_data.value;
+      auto dout_port_msg = std::make_shared<dio_ros_driver::msg::DIOPort>();
+      dout_port_msg->value = dout_port_data.value;
+      receiveWriteRequest(dout_port_msg, static_cast<uint32_t>(dout_port_data.port));
     }
   }
 }
 
 /**
  * @brief convert read value to topic
- * read values from all DI ports.
+ * read values from all DI ports and send them as respective topic to application node
  */
 void DIO_ROSDriver::readDINPorts(void) {
+  dio_ros_driver::msg::DIOPort din_port;
+  dio_ros_driver::msg::DIOArray port_array_values;
+  dio_ros_driver::msg::DIOPortValue port_value;
   for (uint32_t i = 0; i < din_accessor_->getNumOfPorts(); i++) {
-    read_din_values_[i] = din_accessor_->readPort(i);
+    int32_t read_value = din_accessor_->readPort(i);
+    if (read_value >= 0) {
+      din_port.value = static_cast<bool>(read_value);
+      din_port_publisher_array_.at(i)->publish(din_port);
+      port_value.port = static_cast<u_int8_t>(i);
+      port_value.value = static_cast<bool>(read_value);
+      port_array_values.values.push_back(port_value);
+    }
   }
+  port_array_values.stamp = get_clock()->now();
+  din_port_array_publisher_->publish(port_array_values);
 }
 
 /**
@@ -234,26 +244,4 @@ void DIO_ROSDriver::writeDOUTPorts(void) {
     }
   }
 }
-
-/**
- * @brief publish DI port value
- * send read values from all DIO ports as respective topic and array topic to application node
- */
-void DIO_ROSDriver::publishDINPortValue(void) {
-  dio_ros_driver::msg::DIOPort din_port;
-  dio_ros_driver::msg::DIOArray port_array_values;
-  dio_ros_driver::msg::DIOPortValue port_value;
-  for (uint32_t i = 0; i < din_accessor_->getNumOfPorts(); i++) {
-    if (read_din_values_[i] >= 0) {
-      din_port.value = static_cast<bool>(read_din_values_[i]);
-      din_port_publisher_array_.at(i)->publish(din_port);
-      port_value.port = static_cast<u_int8_t>(i);
-      port_value.value = static_cast<bool>(read_din_values_[i]);
-      port_array_values.values.push_back(port_value);
-    }
-  }
-  port_array_values.stamp = get_clock()->now();
-  din_port_array_publisher_->publish(port_array_values);
-}
-
 }  // namespace dio_ros_driver
