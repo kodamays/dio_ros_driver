@@ -244,4 +244,6 @@ void DIO_ROSDriver::writeDOUTPorts(void) {
     }
   }
 }
+
+
 }  // namespace dio_ros_driver
